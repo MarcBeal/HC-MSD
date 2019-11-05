@@ -1,0 +1,1 @@
+This project is associated with the manuscript "Sequencing of Chemically Induced Mutations in the MutaMouse lacZ Gene Identifies Human Cancer Mutational Signatures." The R Shiny app used to conduct the analyses is included within the project.
