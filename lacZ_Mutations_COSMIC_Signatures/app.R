@@ -887,18 +887,6 @@ return(data.frame(cbind(Group, Position, Ref, Alt)))
 
 ui <- fluidPage(
 
-	#tags$table(
-		#tags$tr(
-			#tags$td(
-				#img(src="beta-gal.png", height=80),
-				#img(src="cosmic.png")
-			#)
-			#tags$td(
-				#h2("Compare ", em("lacZ"), " Mutation Data Against Cosmic Signatures")
-			#)
-		#)
-	#),	
-
   titlePanel(" ", "Transgenic-COSMIC Analysis Tool"),
   
 	sidebarPanel(
