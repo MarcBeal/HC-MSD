@@ -652,6 +652,8 @@ for (i in 1:length(levels(sigInput$Group))) {
 		}	
 	}
 
+	incProgress(1/length(levels(sigInput$Group))/5, detail = "Determining mutation patterns")
+
 	df_vr[[i]] <- df_vr[[i]] / sum(df_vr[[i]])
 	df_vr[[i]] <- data.frame(df_vr[[i]])
 	
@@ -659,10 +661,15 @@ for (i in 1:length(levels(sigInput$Group))) {
 
 }
 
+	incProgress(0, detail = "Identifying which signatures")
+
 #Data ready for whichSignatures
 
 	for (i in 1:length(levels(sigInput$Group))) {
 		colnames(df_vr[[i]]) <- colnames(signatures.cosmic)
+	
+	incProgress(1/length(levels(sigInput$Group))/5, detail = "Identifying which signatures")
+
 	}
 
 	if (sigVersion == 3) {
@@ -679,6 +686,9 @@ for (i in 1:length(levels(sigInput$Group))) {
 
 	for (i in 1:length(levels(sigInput$Group))) {
 		plotSigs[[i]] <- whichSignatures(tumor.ref=df_vr[[i]], signatures.ref=lacZ_cosmic_signatures, sample.id=rownames(df_vr[[i]]))
+	
+	incProgress(1/length(levels(sigInput$Group))/5, detail = "Identifying which signatures")
+	
 	}
 
 	#Extract the signature data for each study group
@@ -690,11 +700,13 @@ for (i in 1:length(levels(sigInput$Group))) {
 	for (i in 1:length(levels(sigInput$Group))) {
 		allSigs[i,] <- as.numeric(plotSigs[[i]]$weights)
 		vcfNames <- c(vcfNames, rownames(plotSigs[[i]]$weights))
+	
+	incProgress(1/length(levels(sigInput$Group))/5, detail = "Identifying which signatures")
+	
 	}
-
+	
 	rownames(allSigs) <- vcfNames
 	colnames(allSigs) <- names(plotSigs[[1]]$weights)
-
 
 	resultsToReturn <- list()
 
@@ -704,6 +716,8 @@ for (i in 1:length(levels(sigInput$Group))) {
 	resultsToReturn$errorInRef <- errorInRef 
 
 	return(resultsToReturn)
+
+	incProgress(0, detail = "Plotting results")
 
 }
 
@@ -896,7 +910,7 @@ return(data.frame(cbind(Group, Position, Ref, Alt)))
 
 ################################################################################
 ################################################################################
-#################################GUI Begins#####################################
+#################################App Begins#####################################
 ################################################################################
 ################################################################################
 
@@ -919,7 +933,7 @@ ui <- fluidPage(
                 multiple = FALSE,
                 accept = c("text/tab-separated-values")),
 
-	helpText("Please upload file with exact columns: Group, Position, Ref, Alt. After upload is completed click on Analyze and please wait a moment for analysis to complete. Do not hit Analyze again or any of the Download buttons until analysis is completed. This will be evident by the appearance of a summary message on the right. Downloads may take a moment to begin. Currently, a minimum of two groups are required to run program. Graph Y-axis maxes out at 0.4"),
+	helpText("Please upload tab-separated text file with exact columns: Group, Position, Ref, Alt. After upload is completed click on Analyze and please wait a moment for analysis to complete. Do not hit Analyze again or any of the Download buttons until analysis is completed. This will be evident by the appearance of a summary message on the right. Downloads may take a moment to begin. Currently, a minimum of two groups are required to run program. Graph Y-axis maxes out at 0.4"),
 
 	radioButtons("cosmicVersion", "Choose COSMIC Mutational Signatures Version", c("Version 3", "Version 2"), selected="Version 3"),
 	
@@ -978,13 +992,10 @@ server <- function(input, output) {
 		inFile = input$file1
 		sigInput <- read.table(inFile$datapath, header = T, sep="\t")
 		
-		incProgress(0.5)
-		
 		if (input$cosmicVersion == "Version 3") { rawResults <- compareToSigs(sigInput, 3) }
 		if (input$cosmicVersion == "Version 2") { rawResults <- compareToSigs(sigInput, 2) }
 
-		incProgress(0.5)
-		Sys.sleep(0.1)
+		incProgress(0.2)
 
 		rawResults
 
