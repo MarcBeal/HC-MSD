@@ -776,26 +776,38 @@ if (lacZSigs == F) {
 
 ################################################################################
 ################################################################################
-####################Reconstruct & Pearson Coefficient Starts####################
+###################Reconstruct & Similarity Comparison Starts###################
 ################################################################################
 ################################################################################
 
-reconstructSig <- function(inData) {
+reconstructSig <- function(inData, simMetric) {
 
 reconstructed <- list()
 p.value <- vector()
-cor <- vector()
+correlation <- vector()
 
+	#Calculate Pearson Correlation and Cosine Similarity
 	for (i in 1:nrow(inData$signatureSummary)) {
-	reconstructed[[i]] <- inData$lacZ_cosmic_signatures * inData$signatureSummary[i,]
-	result <- cor.test(as.vector(colSums(reconstructed[[i]])), as.vector(inData$plotSigs[[i]]$tumor), "two.sided", "pearson")
-	
-	p.value <- c(p.value, result$p.value)
-	cor <- c(cor, result$estimate)
-
+		reconstructed[[i]] <- inData$lacZ_cosmic_signatures * inData$signatureSummary[i,]
+		
+		#Below calculates Pearson Correlation
+		result <- cor.test(as.vector(colSums(reconstructed[[i]])), as.vector(inData$plotSigs[[i]]$tumor), "two.sided", "pearson")
+		p.value <- c(p.value, result$p.value)
+		
+		if (simMetric == "Pearson Correlation") {
+				correlation <- c(correlation, result$estimate)
+		}
+		
+		#Below reports Cosine Similarity
+		mutPattern1 <- as.vector(colSums(reconstructed[[i]]))
+		mutPattern2 <- as.vector(inData$plotSigs[[i]]$tumor)
+		
+		if (simMetric == "Cosine Similarity") {
+			correlation <- c(correlation, sum(mutPattern1*mutPattern2)/sqrt(sum(mutPattern1^2)*sum(mutPattern2^2)))
+		}
 	}
 
-resultsSummary <- rbind(p.value, cor)
+resultsSummary <- rbind(p.value, correlation) #note: p-value corresponds to Pearson correlation and is not reported in output
 colnames(resultsSummary) <- rownames(inData$signatureSummary)
 
 return(resultsSummary)
@@ -808,7 +820,7 @@ return(resultsSummary)
 ################################################################################
 ################################################################################
 
-corTestSig <- function(inData) {
+corTestSig <- function(inData, simMetric) {
 
 group <- list()
 
@@ -818,23 +830,28 @@ group <- list()
 	group[[i]]$groupName <- row.names(inData$signatureSummary)[i]
 	
 	tested <- vector()
-	p.value <- vector()
-	cor <- vector()
+	#p.value <- vector()
+	correlation <- vector()
 		
 	corSigs <- as.integer(which(inData$signatureSummary[i,]>0))
 
 		for (j in 1:length(corSigs)) {
+			#Below records Pearson Correlation
+			result <- cor.test(as.numeric(inData$lacZ_cosmic_signatures[corSigs[j],]), as.numeric(inData$plotSigs[[i]]$tumor), "two.sided", "pearson")		
+			tested <- c(tested, colnames(inData$signatureSummary)[corSigs][j])
+						
+			if (simMetric == "Pearson Correlation") {
+				correlation <- c(correlation, result$estimate)
+			} else if (simMetric == "Cosine Similarity") {
+				#Below reports Cosine Similarity - Updated analysis
+				mutPattern1 <- as.numeric(inData$lacZ_cosmic_signatures[corSigs[j],])
+				mutPattern2 <- as.numeric(inData$plotSigs[[i]]$tumor)
+				correlation <- c(correlation, sum(mutPattern1*mutPattern2)/sqrt(sum(mutPattern1^2)*sum(mutPattern2^2)))
+			}
 		
-
-		result <- cor.test(as.numeric(inData$lacZ_cosmic_signatures[corSigs[j],]), as.numeric(inData$plotSigs[[i]]$tumor), "two.sided", "pearson")		
-		
-		tested <- c(tested, colnames(inData$signatureSummary)[corSigs][j])
-		p.value <- c(p.value, result$p.value)
-		cor <- c(cor, result$estimate)
-
 		}
 
-	group[[i]]$result <- rbind(tested, p.value, cor)
+	group[[i]]$result <- rbind(tested, correlation)
 
 	}
 
@@ -905,6 +922,8 @@ ui <- fluidPage(
 	helpText("Please upload file with exact columns: Group, Position, Ref, Alt. After upload is completed click on Analyze and please wait a moment for analysis to complete. Do not hit Analyze again or any of the Download buttons until analysis is completed. This will be evident by the appearance of a summary message on the right. Downloads may take a moment to begin. Currently, a minimum of two groups are required to run program. Graph Y-axis maxes out at 0.4"),
 
 	radioButtons("cosmicVersion", "Choose COSMIC Mutational Signatures Version", c("Version 3", "Version 2"), selected="Version 3"),
+	
+	radioButtons("simMetric", "Choose Similarity Metric for Data Filtering", c("Cosine Similarity", "Pearson Correlation"), selected="Cosine Similarity"),
 
 	actionButton("analyze", "Analyze"),
 
@@ -914,7 +933,7 @@ ui <- fluidPage(
 
 	downloadButton("downloadFinalData", "Download Final Summary"),
 
-	downloadButton("downloadCorResults", "Download Pearson Correlations"),	
+	downloadButton("downloadCorResults", "Download Similarity Metrics"),
 
 	downloadButton("downloadGraphs", "Download Graphs"),
 
@@ -1001,7 +1020,7 @@ server <- function(input, output) {
 		plotSignatureResults(analyzeData(), 1:nrow(analyzeData()$signatureSummary)) 
 	})
 
-	###Remove zero sigs, merge summary with pearson (from reconstructSigs), print out raw summary
+	###Remove zero sigs, merge summary with pearson/cosine (from reconstructSigs), print out raw summary
 	rawSummaryOutput <- reactive({
 
 		rawSummary <- analyzeData()$signatureSummary[, colSums(analyzeData()$signatureSummary != 0) > 0]
@@ -1012,10 +1031,14 @@ server <- function(input, output) {
 	
 		colnames(rawSummary)[ncol(rawSummary)] = "Residual"
 
-		rawSummary <- cbind(rawSummary, t(t(reconstructSig(analyzeData())[2,])))
+		rawSummary <- cbind(rawSummary, t(t(reconstructSig(analyzeData(), input$simMetric)[2,])))
 
-		colnames(rawSummary)[ncol(rawSummary)] = "reconstructSigPearsonCoefficient"
-
+		if (input$simMetric == "Pearson Correlation") {
+			colnames(rawSummary)[ncol(rawSummary)] = "reconstructSigPearsonCoefficient"
+		} else if (input$simMetric == "Cosine Similarity") {
+			colnames(rawSummary)[ncol(rawSummary)] = "reconstructSigCosineSimilarity"
+		}
+		
 		rawSummary <- t(rawSummary)
 		
 	})
@@ -1033,10 +1056,10 @@ server <- function(input, output) {
 
 	output$downloadCorResults <- downloadHandler(
     	filename = function() {
-      	"Signature_Pearson_correlations_between_sigs_and_mut_profiles.txt"
-    	},
+      	"Signature_similarity_between_sigs_and_mut_profiles.txt"
+		},
     	content = function(file) {
-      	correlationResults <- corTestSig(analyzeData())
+      	correlationResults <- corTestSig(analyzeData(), input$simMetric)
 	sink(file)
     	print(correlationResults)
 	sink()
@@ -1057,20 +1080,24 @@ server <- function(input, output) {
 			finalSummary <- analyzeData()$signatureSummary[, colSums(analyzeData()$signatureSummary != 0) > 0]
 			finalSummary <- ifelse(finalSummary<largestResidual,0,finalSummary)
 
-			#now remove anything with pearson correlation below 0.5
-			correlationResults <- corTestSig(analyzeData())
+			#now remove anything with cosine similarity or pearson correlation below 0.5
+			correlationResults <- corTestSig(analyzeData(), input$simMetric)
 			for(i in 1:nrow(finalSummary)) {
 				tempData <- t(correlationResults[[i]]$result)
-				nonImportantSigs <- as.vector(t(tempData[tempData[,3]<=0.5,1]))
-				#nonImportantSigs <- nonImportantSigs[grep("Signature", nonImportantSigs)]
-				#nonImportantSigs <- gsub("Signature.31", "Control", nonImportantSigs)
+				nonImportantSigs <- as.vector(t(tempData[tempData[,"correlation"]<=0.5,1]))
 				finalSummary[i,][nonImportantSigs] <- 0
 			}
 
 
 			#write final results that pass the thresholds
-			finalSummary <- cbind(finalSummary, t(t(reconstructSig(analyzeData())[2,])))
-			colnames(finalSummary)[ncol(finalSummary)] = "reconstructSigPearsonCoefficient"
+			finalSummary <- cbind(finalSummary, t(t(reconstructSig(analyzeData(), input$simMetric)["correlation",])))
+			
+			if (input$simMetric == "Pearson Correlation") {
+				colnames(finalSummary)[ncol(finalSummary)] = "reconstructSigPearsonCoefficient"
+			} else if (input$simMetric == "Cosine Similarity") {
+				colnames(finalSummary)[ncol(finalSummary)] = "reconstructSigCosineSimilarity"
+			}
+						
 			finalSummary <- t(finalSummary)
 
 			write.table(finalSummary, file, sep="\t", col.names=NA)
@@ -1134,13 +1161,17 @@ server <- function(input, output) {
 	cat(paste("largest residual of ", largestResidual, " were\n", sep=""))
 	cat("removed and reported as 0.\n")
 	cat("\n")
-	cat("Furthermore, if the Pearson coefficient between\n")
+	if (input$simMetric == "Pearson Correlation") {
+		cat("Furthermore, if the Pearson Correlation between\n")
+	} else if (input$simMetric == "Cosine Similarity") {
+		cat("Furthermore, if the Cosine Similarity between\n")
+	}
 	cat("the signature and mutation data was below 0.5,\n")
 	cat("that signature was also removed and reported as 0.\n")
 	cat("\n")
 	cat("The raw P.C. information can be found in\n")
-	cat("Signature_Pearson_correlations_between_sigs_and_mut_profiles.txt\n")
-	cat("by clicking Download Pearson Correlations.\n")
+	cat("Signature_similarities_between_sigs_and_mut_profiles.txt\n")
+	cat("by clicking Download Similarity Metrics.\n")
 	cat("\n")
 	cat("Best of luck with your data interpretation!")
 	})
