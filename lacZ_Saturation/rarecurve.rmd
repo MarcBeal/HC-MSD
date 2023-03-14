@@ -1,3 +1,5 @@
+###This RMarkdown was used to generate the rarefaction plots in the supplementary material file
+
 ``` {r setup}
 library(vegan)
 library(openxlsx)
