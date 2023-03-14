@@ -1,0 +1,140 @@
+``` {r setup}
+library(vegan)
+library(openxlsx)
+library(RColorBrewer)
+library(patchwork)
+
+mutationData <- read.xlsx("rarecurve_input.xlsx")
+
+```
+
+``` {r, firstPlot_All}
+
+numLabels <- 3
+
+rc_data <- matrix(rep(0, (ncol=length(unique(mutationData$Identifier)) * numLabels)), 
+                  nrow = numLabels, 
+                  ncol=length(unique(mutationData$Identifier)))
+
+colnames(rc_data) <- unique(mutationData$Identifier)
+
+rownames(rc_data) <- c("All", "NGS", "Sanger")
+
+
+for (i in rownames(rc_data)) {
+  
+  for (j in colnames(rc_data)) {
+    rc_data[i,j] <- nrow(mutationData[mutationData$Technology == i & mutationData$Identifier == j,])
+  }
+}
+
+rc_data["All",] <- colSums(rc_data[2:3,])
+
+plot1 <- rarecurve(rc_data, xlab= "Mutations scored", ylab = "Number of unique mutations", col=brewer.pal(n = 3, name = "Dark2"), lwd=2)
+title("All Mutations")
+
+
+```
+
+``` {r, firstPlot_Missense}
+
+numLabels <- 3
+
+rc_data <- matrix(rep(0, (ncol=length(unique(mutationData$Identifier)) * numLabels)), 
+                  nrow = numLabels, 
+                  ncol=length(unique(mutationData$Identifier)))
+
+colnames(rc_data) <- unique(mutationData$Identifier)
+
+rownames(rc_data) <- c("All", "NGS", "Sanger")
+
+
+for (i in rownames(rc_data)) {
+  
+  for (j in colnames(rc_data)) {
+    rc_data[i,j] <- nrow(mutationData[mutationData$Technology == i & mutationData$Identifier == j & mutationData$Type == "missense",])
+  }
+}
+
+rc_data["All",] <- colSums(rc_data[2:3,])
+
+plot2 <- rarecurve(rc_data, xlab= "Mutations scored", ylab = "Number of unique mutations", col=brewer.pal(n = 3, name = "Dark2"), lwd=2)
+title("Missense Mutations")
+
+
+```
+
+
+``` {r, firstPlot_Missense_SNV}
+
+mutationData2 <- mutationData
+
+mutationData2 <- mutationData2[mutationData2$Type == "missense",]
+
+Mutation <- paste0(mutationData2$Ref, mutationData2$Alt)
+
+Mutation[grep("GT", Mutation)] <- "CA"
+Mutation[grep("GC", Mutation)] <- "CG"
+Mutation[grep("GA", Mutation)] <- "CT"
+Mutation[grep("AT", Mutation)] <- "TA"
+Mutation[grep("AG", Mutation)] <- "TC"
+Mutation[grep("AC", Mutation)] <- "TG"
+
+mutationData2 <- cbind(mutationData2, Mutation)
+
+numLabels <- 6
+
+rc_data <- matrix(rep(0, (ncol=length(unique(mutationData2$Identifier)) * numLabels)), 
+                  nrow = numLabels, 
+                  ncol=length(unique(mutationData2$Identifier)))
+
+colnames(rc_data) <- unique(mutationData2$Identifier)
+
+rownames(rc_data) <- c("CA", "CG", "CT", "TA", "TC", "TG")
+
+
+for (i in rownames(rc_data)) {
+  
+  for (j in colnames(rc_data)) {
+    rc_data[i,j] <- nrow(mutationData2[mutationData2$Mutation == i & mutationData2$Identifier == j,])
+  }
+}
+
+rownames(rc_data) <- c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+
+plot3 <- rarecurve(rc_data, xlab= "Mutations scored", ylab = "Number of unique mutations", col=brewer.pal(n = 6, name = "Dark2"), lwd=2)
+title("Missense Mutations")
+
+
+```
+
+``` {r, secondPlot_Nonsense}
+
+numLabels <- 3
+
+rc_data <- matrix(rep(0, (ncol=length(unique(mutationData$Identifier)) * numLabels)), 
+                  nrow = numLabels, 
+                  ncol=length(unique(mutationData$Identifier)))
+
+colnames(rc_data) <- unique(mutationData$Identifier)
+
+rownames(rc_data) <- c("All", "NGS", "Sanger")
+
+
+for (i in rownames(rc_data)) {
+  
+  for (j in colnames(rc_data)) {
+    rc_data[i,j] <- nrow(mutationData[mutationData$Technology == i & mutationData$Identifier == j & mutationData$Type == "nonsense",])
+  }
+}
+
+rc_data["All",] <- colSums(rc_data[2:3,])
+
+plot4 <- rarecurve(rc_data, xlab= "Mutations scored", ylab = "Number of unique mutations", col=brewer.pal(n = 3, name = "Dark2"), lwd=2)
+title("Nonsense Mutations")
+
+
+
+```
+
+
